@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>View</title>
+<style>
+body{
+  font-family:Arial, Helvetica, sans-serif;
+  background:#fff;
+}
+.info {
+  position: fixed;
+  top: 0px;
+  left: 0px;
+  background-color: rgba(150,150,150,150);
+  padding: 20px;
+  z-index: 100;
+}
+
+.info a {
+  color: #fff;
+}
+
+canvas {
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  cursor: pointer;
+}
+
+</style>
+
+</head>
+<body>
+<div class = "info">
+  <a href="https://youtu.be/UF53cptEE5k?t=3m12s"> Source </a>
+</div>
+
+
+<script src="http://cdn.tonejs.org/latest/Tone.min.js"></script>
+<script src="./three.min.js"></script>
+<script src="./perlin.js"></script>
+<script>
+
+//load texture before dom loaded
+var texture = THREE.ImageUtils.loadTexture( "./viewl.png" );
+//synth can be better.. but I do not know how to :P
+var synth = new Tone.PolySynth(6, Tone.SimpleSynth, {
+  envelope : {
+    attack : 0.01,
+    decay : 0.7,
+    sustain : 0.7,
+    release : 0.7
+  }
+}).toMaster();
+
+var tones = ['C#5','G#4','F#4','F#4','G#4','A4'];
+var harmony = ['E4','B3','D3','A3','B3','F#3'];
+
+window.addEventListener( 'DOMContentLoaded', function(){
+  
+  var width = window.innerWidth;
+  var height = window.innerHeight;
+  
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera( 40, width / height, 1, 1000 );
+  var light = new THREE.DirectionalLight( 0xffffff, 1.5 );
+  light.position.set( -1, 1, 1 ).normalize();
+  scene.add( light );
+
+  var toneIndex = 0;
+  
+  var renderer = new THREE.WebGLRenderer();
+  renderer.setSize( width, height );
+  renderer.setClearColor( 0xffffff, 0);
+  document.body.appendChild( renderer.domElement );
+  
+
+  var terrain = [];
+  var meshWidth = 10;
+  var meshHeight = 30;
+
+  for (var x = 0; x < meshWidth; x++) {
+    var new_row = [];
+    for (var y = 0; y < meshHeight; y++) {
+      var value = 0;//noise.perlin2(x, y);
+      new_row.push(value);
+    }
+    terrain.push(new_row);
+  }
+
+
+  var geom = new THREE.Geometry();
+  geom.dynamic = true;
+
+  var w = 0.5;
+  var counter = 0;
+
+  var i,j;
+  for(i = 0; i < meshWidth-1; i++){
+    for(j = 0; j < meshHeight-1; j++){
+    var faceIndexBace = counter * 6;
+    var y = [
+      terrain[i  ][j  ] * w,
+      terrain[i+1][j  ] * w ,
+      terrain[i  ][j+1] * w ,
+      terrain[i+1][j+1] * w 
+    ];
+    //square : triangle1 + triangle2
+      // triangle1
+      (function(){
+        var v1 = new THREE.Vector3(      i * w, y[0],        (-1 * j) * w);
+        var v2 = new THREE.Vector3((1 + i) * w, y[1],        (-1 * j) * w);
+        var v3 = new THREE.Vector3(      i * w, y[2], (-1 + (-1 * j)) * w);
+        geom.vertices.push(v1);
+        geom.vertices.push(v2);
+        geom.vertices.push(v3);
+        
+        var face = new THREE.Face3( faceIndexBace , faceIndexBace + 1, faceIndexBace + 2 );
+        face.normal = (function (){
+          var vx = (v1.y - v3.y) * (v2.z - v3.z) - (v1.z - v3.z) * (v2.y - v3.y);
+          var vy = (v1.z - v3.z) * (v2.x - v3.x) - (v1.x - v3.x) * (v2.z - v3.z);
+          var vz = (v1.x - v3.x) * (v2.y - v3.y) - (v1.y - v3.y) * (v2.x - v3.x);
+          var va = Math.sqrt( Math.pow(vx,2) +Math.pow(vy,2)+Math.pow(vz,2));
+          return new THREE.Vector3( vx/va, vy/va, vz/va);
+        })();
+        geom.faces.push( face );
+        
+        geom.faceVertexUvs[0].push( [
+              new THREE.Vector2(j/meshHeight,(meshWidth-i)/meshWidth),
+              new THREE.Vector2( j/meshHeight,(meshWidth-(i+1))/meshWidth ),
+              new THREE.Vector2( (j+1)/meshHeight,(meshWidth-i)/meshWidth ),
+          ] )
+      })();
+      
+      // triangle2
+      (function(){
+        var v1 = new THREE.Vector3( (1 + i) * w, y[1],        (-1 * j) * w);
+        var v2 = new THREE.Vector3( (1 + i) * w, y[3], (-1 + (-1 * j)) * w);
+        var v3 = new THREE.Vector3(       i * w, y[2], (-1 + (-1 * j)) * w);
+        geom.vertices.push(v1);
+        geom.vertices.push(v2);
+        geom.vertices.push(v3);
+        
+        var face = new THREE.Face3( faceIndexBace + 3, faceIndexBace + 4, faceIndexBace + 5 );
+        face.normal = (function (){
+          var vx = (v1.y - v3.y) * (v2.z - v3.z) - (v1.z - v3.z) * (v2.y - v3.y);
+          var vy = (v1.z - v3.z) * (v2.x - v3.x) - (v1.x - v3.x) * (v2.z - v3.z);
+          var vz = (v1.x - v3.x) * (v2.y - v3.y) - (v1.y - v3.y) * (v2.x - v3.x);
+          var va = Math.sqrt( Math.pow(vx,2) +Math.pow(vy,2)+Math.pow(vz,2));
+          return new THREE.Vector3( vx/va, vy/va, vz/va);
+        })();
+        geom.faces.push( face );
+        geom.faceVertexUvs[0].push( [
+              new THREE.Vector2(j/meshHeight,(meshWidth-(i+1))/meshWidth),
+              new THREE.Vector2( (j+1)/meshHeight ,(meshWidth-(i+1))/meshWidth),
+              new THREE.Vector2( (j+1)/meshHeight,(meshWidth-i)/meshWidth ),
+          ] )
+      })();
+      counter++;
+    }
+  }
+
+  var x_noise_param = 250;
+  var y_noise_param = 10;
+
+  var updateNoise = function() {
+
+    var count = 0;
+    terrain = [];
+
+    for (var x = x_noise_param; x < x_noise_param+meshWidth; x++) {
+       var new_row = [];
+       for (var y = y_noise_param; y < y_noise_param+meshHeight; y++) {
+          
+          var valueX = x/10;
+          var valueY = y/10;
+          var value = noise.perlin2(valueX, valueY);
+          value *= ample;
+          new_row.push(value);
+      }
+      terrain.push(new_row);
+    }
+
+    for(var i = 0; i < meshWidth-1; i++){
+        for(var j = 0; j < meshHeight-1; j++){
+        var faceIndexBace = count * 6;
+        var y = [
+          terrain[i  ][j  ] * w,
+          terrain[i+1][j  ] * w ,
+          terrain[i  ][j+1] * w ,
+          terrain[i+1][j+1] * w 
+        ];
+
+        mesh.geometry.vertices[faceIndexBace].y = y[0];
+        mesh.geometry.vertices[faceIndexBace+1].y = y[1];
+        mesh.geometry.vertices[faceIndexBace+2].y = y[2];
+
+        mesh.geometry.vertices[faceIndexBace+3].y = y[1];
+        mesh.geometry.vertices[faceIndexBace+4].y = y[3];
+        mesh.geometry.vertices[faceIndexBace+5].y = y[2];
+        count++;
+
+      }
+    }
+    x_noise_param +=0.05;
+    y_noise_param +=0.05;
+  }
+
+  var arz = 0;
+  var target = new THREE.Vector3(100,-5000, 100);
+
+  var updateHole = function(argz) {
+
+    var newTerrain = [];
+
+    var count = 0;
+    for(var i = 0; i < meshWidth-1; i++){
+        for(var j = 0; j < meshHeight-1; j++){
+          var faceIndexBace = count * 6;
+          var v1 = new THREE.Vector3(      i * w*1000, 0,        (-1 * j) * w*1000);
+          var v2 = new THREE.Vector3((1 + i) * w*1000, 0,        (-1 * j) * w*1000);
+          var v3 = new THREE.Vector3(      i * w*1000, 0, (-1 + (-1 * j)) * w*1000);
+          var v4 = new THREE.Vector3(      i * w*1000, 0, (-1 + (-1 * j)) * w*1000);
+
+          var dist1 = target.distanceTo(v1);
+          var dist2 = target.distanceTo(v2);
+          var dist3 = target.distanceTo(v3);
+          var dist4 = target.distanceTo(v4);
+
+          var newY1 = -arz/dist1;
+          var newY2 = -arz/dist2;
+          var newY3 = -arz/dist3;
+          var newY4 = -arz/dist4;
+
+          newY1 = Math.pow(newY1,5);
+          newY2 = Math.pow(newY2,5);
+          newY3 = Math.pow(newY3,5);
+          newY4 = Math.pow(newY4,5);
+
+          mesh.geometry.vertices[faceIndexBace].y += newY1;
+          mesh.geometry.vertices[faceIndexBace+1].y += newY2;
+          mesh.geometry.vertices[faceIndexBace+2].y += newY3;
+
+          mesh.geometry.vertices[faceIndexBace+3].y += newY2;
+          mesh.geometry.vertices[faceIndexBace+4].y += newY4;
+          mesh.geometry.vertices[faceIndexBace+5].y += newY3;
+          count++;
+
+      }
+    }
+  }
+
+
+  var mesh= new THREE.Mesh(
+    geom,
+     new THREE.MeshBasicMaterial({map:texture})
+  );
+
+  camera.position.y = 50;
+  camera.rotation.x = -Math.PI/2;
+  camera.rotation.z = Math.PI/2;
+  camera.position.x = meshWidth/4;
+  camera.position.z = -meshHeight/4;
+  scene.add( camera );
+
+  //waiting little bit to wait image 
+  setTimeout(function() {
+    scene.add(mesh);
+  }, 500);
+
+  var ample = 35;
+
+  window.addEventListener('click', function() {
+    ample = 55;
+    synth.triggerAttackRelease(tones[toneIndex],'4n');
+    synth.triggerAttackRelease(harmony[toneIndex],'4n');
+    toneIndex++;
+    toneIndex%= tones.length;
+  });
+
+  (function(){
+    mesh.geometry.verticesNeedUpdate = true;
+    updateNoise();
+    if( ample > 0) ample -= 0.2;
+    renderer.render( scene, camera );
+    requestAnimationFrame(arguments.callee);
+  })();
+}, false);
+</script>
+</body>
+</html>
